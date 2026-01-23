@@ -42,46 +42,53 @@ export class ToolFactory {
       : schema;
 
     this.server.tool(name, description, finalSchema, async (args: unknown): Promise<McpResponse> => {
-      // Extract bot parameter if present
-      const botParam = supportsBotSelection && args && typeof args === 'object' && 'bot' in args
-        ? (args as { bot?: string | number }).bot
-        : undefined;
+      // Only validate bot connection if the tool supports bot selection
+      if (supportsBotSelection) {
+        // Extract bot parameter if present
+        const botParam = args && typeof args === 'object' && 'bot' in args
+          ? (args as { bot?: string | number }).bot
+          : undefined;
 
-      // Get the bot connection
-      const connection = botParam !== undefined
-        ? this.botManager.getBotConnection(botParam)
-        : this.botManager.getBotConnection(); // Uses active bot
+        // Get the bot connection
+        const connection = botParam !== undefined
+          ? this.botManager.getBotConnection(botParam)
+          : this.botManager.getBotConnection(); // Uses active bot
 
-      if (!connection) {
-        const botIdentifier = botParam !== undefined ? `'${botParam}'` : 'active bot';
-        return {
-          content: [{ type: "text", text: `Bot ${botIdentifier} not found. Use list-bots to see available bots.` }],
-          isError: true
-        };
-      }
-
-      // Check connection status
-      const connectionCheck = await connection.checkConnectionAndReconnect();
-
-      if (!connectionCheck.connected) {
-        return {
-          content: [{ type: "text", text: connectionCheck.message! }],
-          isError: true
-        };
-      }
-
-      try {
-        // Add selected bot instance to args for tools that need it
-        // This allows tools to use the correct bot without needing to modify their signatures
-        if (args && typeof args === 'object') {
-          const bot = connection.getBot();
-          if (bot) {
-            // Create a new object with the bot instance added
-            const argsWithBot = { ...args, _selectedBot: bot };
-            return await executor(argsWithBot);
-          }
+        if (!connection) {
+          const botIdentifier = botParam !== undefined ? `'${botParam}'` : 'active bot';
+          return {
+            content: [{ type: "text", text: `Bot ${botIdentifier} not found. Use list-bots to see available bots.` }],
+            isError: true
+          };
         }
 
+        // Check connection status
+        const connectionCheck = await connection.checkConnectionAndReconnect();
+
+        if (!connectionCheck.connected) {
+          return {
+            content: [{ type: "text", text: connectionCheck.message! }],
+            isError: true
+          };
+        }
+
+        // Add selected bot instance to args for tools that need it
+        try {
+          if (args && typeof args === 'object') {
+            const bot = connection.getBot();
+            if (bot) {
+              // Create a new object with the bot instance added
+              const argsWithBot = { ...args, _selectedBot: bot };
+              return await executor(argsWithBot);
+            }
+          }
+        } catch (error) {
+          return this.createErrorResponse(error as Error);
+        }
+      }
+
+      // For tools that don't support bot selection, execute directly
+      try {
         return await executor(args);
       } catch (error) {
         return this.createErrorResponse(error as Error);
