@@ -35,13 +35,16 @@ export function registerBotManagementTools(factory: ToolFactory): void {
     "List all currently active bots with their connection information and status",
     {},
     async () => {
+      const botCount = botManager.getBotCount();
+      const activeBotName = botManager.getActiveBotName();
       const bots = botManager.listBots();
 
-      if (bots.length === 0) {
-        return factory.createResponse("No bots currently active. Use spawn-bot to create a new bot.");
-      }
+      // Debug logging
+      console.error(`[DEBUG list-bots] Bot count: ${botCount}, Active bot: ${activeBotName}, List length: ${bots.length}`);
 
-      const activeBotName = botManager.getActiveBotName();
+      if (bots.length === 0) {
+        return factory.createResponse(`No bots currently active. Use spawn-bot to create a new bot.\n\nDebug info: botCount=${botCount}, activeBotName=${activeBotName}`);
+      }
 
       let response = `Active bots (${bots.length}):\n\n`;
 
