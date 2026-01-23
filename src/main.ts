@@ -17,6 +17,9 @@ import { registerFlightTools } from './tools/flight-tools.js';
 import { registerGameStateTools } from './tools/gamestate-tools.js';
 import { registerCraftingTools } from './tools/crafting-tools.js';
 import { registerBotManagementTools } from './tools/bot-management-tools.js';
+import { registerCompositeTools } from './tools/composite-tools.js';
+import { registerSequenceTools } from './tools/sequence-tools.js';
+import { registerContextTools } from './tools/context-tools.js';
 
 setupStdioFiltering();
 
@@ -77,6 +80,11 @@ async function main() {
 
   // Register multi-bot management tools
   registerBotManagementTools(factory);
+
+  // Register performance-optimized tools
+  registerCompositeTools(factory, getBot);
+  registerSequenceTools(factory, getBot);
+  registerContextTools(factory, getBot);
 
   const botCount = botManager.getBotCount();
   const activeBotName = botManager.getActiveBotName();
