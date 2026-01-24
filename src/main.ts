@@ -21,6 +21,22 @@ import { registerCompositeTools } from './tools/composite-tools.js';
 import { registerSequenceTools } from './tools/sequence-tools.js';
 import { registerContextTools } from './tools/context-tools.js';
 
+// Goal-driven architecture imports
+import { EventQueue } from './events/event-queue.js';
+import { GoalManager } from './goals/goal-manager.js';
+import { BehaviorExecutor } from './behaviors/behavior-executor.js';
+import { NavigateBehavior } from './behaviors/navigate.behavior.js';
+import { MineBehavior } from './behaviors/mine.behavior.js';
+import { EatBehavior } from './behaviors/eat.behavior.js';
+import { PlaceBehavior } from './behaviors/place.behavior.js';
+import { BuildStructureBehavior } from './behaviors/build-structure.behavior.js';
+import { registerDelegateTaskTool } from './tools/delegate-task.tool.js';
+import { registerGetStatusTool } from './tools/get-status.tool.js';
+import { registerGetEventsTool } from './tools/get-events.tool.js';
+import { registerCancelTaskTool } from './tools/cancel-task.tool.js';
+import { registerListCapabilitiesTool } from './tools/list-capabilities.tool.js';
+import { registerExecuteScriptTool } from './tools/execute-script.tool.js';
+
 setupStdioFiltering();
 
 process.on('unhandledRejection', (reason) => {
@@ -35,7 +51,7 @@ async function main() {
   const config = parseConfig();
   const messageStore = new MessageStore();
 
-  log('info', `Minecraft MCP Server v2.1.0 starting...`);
+  log('info', `Minecraft MCP Server v2.2.1 starting...`);
   log('info', `Target server: ${config.server.host}:${config.server.port}`);
 
   // Create BotManager with server configuration
@@ -62,11 +78,30 @@ async function main() {
 
   const server = new McpServer({
     name: "minecraft-mcp-server",
-    version: "2.1.0"
+    version: "2.2.1"
   });
 
   const factory = new ToolFactory(server, botManager);
   const getBot = () => botManager.getActiveBot()!;
+
+  // Initialize goal-driven architecture
+  log('info', 'Initializing goal-driven architecture...');
+  const eventQueue = new EventQueue(1000); // Keep last 1000 events
+  const behaviorExecutor = new BehaviorExecutor();
+  const goalManager = new GoalManager(eventQueue, behaviorExecutor);
+
+  // Register behaviors
+  behaviorExecutor.registerBehavior(new NavigateBehavior());
+  behaviorExecutor.registerBehavior(new MineBehavior());
+  behaviorExecutor.registerBehavior(new EatBehavior());
+  behaviorExecutor.registerBehavior(new PlaceBehavior());
+  behaviorExecutor.registerBehavior(new BuildStructureBehavior());
+
+  // Note: Bots will be registered with behavior executor on-demand when goals are delegated
+
+  // Start goal manager tick loop
+  goalManager.start();
+  log('info', 'Goal-driven architecture initialized');
 
   // Register all existing tools
   registerPositionTools(factory, getBot);
@@ -86,6 +121,16 @@ async function main() {
   registerSequenceTools(factory, getBot);
   registerContextTools(factory, getBot);
 
+  // Register goal-driven architecture tools
+  registerDelegateTaskTool(factory, getBot, goalManager, behaviorExecutor);
+  registerGetStatusTool(factory, getBot, goalManager);
+  registerGetEventsTool(factory, getBot, eventQueue);
+  registerCancelTaskTool(factory, getBot, goalManager);
+  registerListCapabilitiesTool(factory, getBot);
+
+  // Register script execution tool (maximum flexibility)
+  registerExecuteScriptTool(factory, getBot);
+
   const botCount = botManager.getBotCount();
   const activeBotName = botManager.getActiveBotName();
 
@@ -97,6 +142,7 @@ async function main() {
   }
 
   process.stdin.on('end', () => {
+    goalManager.stop();
     botManager.cleanup();
     log('info', 'MCP Client has disconnected. Shutting down...');
     process.exit(0);

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BotManager } from './bot-manager.js';
 
@@ -33,11 +34,7 @@ export class ToolFactory {
     const finalSchema = supportsBotSelection
       ? {
           ...schema,
-          bot: {
-            type: 'string',
-            description: 'Bot name or number (1-based index). If not specified, uses the active bot.',
-            optional: true
-          }
+          bot: z.string().optional().describe('Bot name or number (1-based index). If not specified, uses the active bot.')
         }
       : schema;
 
