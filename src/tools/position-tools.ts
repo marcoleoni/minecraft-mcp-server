@@ -8,12 +8,15 @@ import { ToolFactory } from '../tool-factory.js';
 type Direction = 'forward' | 'back' | 'left' | 'right';
 
 export function registerPositionTools(factory: ToolFactory, getBot: () => mineflayer.Bot): void {
+  // Helper to get the correct bot (selected or active)
+  const getBotFromArgs = (args: { _selectedBot?: mineflayer.Bot }) => args._selectedBot || getBot();
+
   factory.registerTool(
     "get-position",
     "Get the current position of the bot",
     {},
-    async () => {
-      const bot = getBot();
+    async (args) => {
+      const bot = getBotFromArgs(args);
       const position = bot.entity.position;
       const pos = {
         x: Math.floor(position.x),
@@ -21,7 +24,8 @@ export function registerPositionTools(factory: ToolFactory, getBot: () => minefl
         z: Math.floor(position.z)
       };
       return factory.createResponse(`Current position: (${pos.x}, ${pos.y}, ${pos.z})`);
-    }
+    },
+    true // Enable bot selection
   );
 
   factory.registerTool(
@@ -33,12 +37,14 @@ export function registerPositionTools(factory: ToolFactory, getBot: () => minefl
       z: z.number().describe("Z coordinate"),
       range: z.number().optional().describe("How close to get to the target (default: 1)")
     },
-    async ({ x, y, z, range = 1 }) => {
-      const bot = getBot();
+    async (args) => {
+      const bot = getBotFromArgs(args);
+      const { x, y, z, range = 1 } = args;
       const goal = new goals.GoalNear(x, y, z, range);
       await bot.pathfinder.goto(goal);
       return factory.createResponse(`Successfully moved to position near (${x}, ${y}, ${z})`);
-    }
+    },
+    true // Enable bot selection
   );
 
   factory.registerTool(
@@ -49,23 +55,26 @@ export function registerPositionTools(factory: ToolFactory, getBot: () => minefl
       y: z.number().describe("Y coordinate"),
       z: z.number().describe("Z coordinate"),
     },
-    async ({ x, y, z }) => {
-      const bot = getBot();
+    async (args) => {
+      const bot = getBotFromArgs(args);
+      const { x, y, z } = args;
       await bot.lookAt(new Vec3(x, y, z), true);
       return factory.createResponse(`Looking at position (${x}, ${y}, ${z})`);
-    }
+    },
+    true // Enable bot selection
   );
 
   factory.registerTool(
     "jump",
     "Make the bot jump",
     {},
-    async () => {
-      const bot = getBot();
+    async (args) => {
+      const bot = getBotFromArgs(args);
       bot.setControlState('jump', true);
       setTimeout(() => bot.setControlState('jump', false), 250);
       return factory.createResponse("Successfully jumped");
-    }
+    },
+    true // Enable bot selection
   );
 
   factory.registerTool(
@@ -75,8 +84,9 @@ export function registerPositionTools(factory: ToolFactory, getBot: () => minefl
       direction: z.enum(['forward', 'back', 'left', 'right']).describe("Direction to move"),
       duration: z.number().optional().describe("Duration in milliseconds (default: 1000)")
     },
-    async ({ direction, duration = 1000 }: { direction: Direction, duration?: number }) => {
-      const bot = getBot();
+    async (args) => {
+      const bot = getBotFromArgs(args);
+      const { direction, duration = 1000 } = args as { direction: Direction, duration?: number };
       return new Promise((resolve) => {
         bot.setControlState(direction, true);
         setTimeout(() => {
@@ -84,6 +94,7 @@ export function registerPositionTools(factory: ToolFactory, getBot: () => minefl
           resolve(factory.createResponse(`Moved ${direction} for ${duration}ms`));
         }, duration);
       });
-    }
+    },
+    true // Enable bot selection
   );
 }

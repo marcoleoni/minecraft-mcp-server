@@ -180,7 +180,22 @@ export class BotConnection {
     }
 
     if (currentState === 'connecting') {
-      return { connected: false, message: 'Bot is connecting to the Minecraft server. Please wait a moment and try again.' };
+      // Wait for connection to complete
+      const maxWaitTime = 10000; // 10 seconds
+      const pollInterval = 100;
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < maxWaitTime) {
+        if (this.state === 'connected') {
+          return { connected: true };
+        }
+        if (this.state === 'disconnected') {
+          return { connected: false, message: 'Bot failed to connect to the Minecraft server.' };
+        }
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+      }
+
+      return { connected: false, message: 'Bot connection timed out. The Minecraft server may be slow to respond.' };
     }
 
     return { connected: true };

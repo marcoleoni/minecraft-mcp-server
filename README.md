@@ -117,6 +117,83 @@ Once connected to a Minecraft server, Claude can use these commands:
 ### Game State
 - `detect-gamemode` - Detect the gamemode on game
 
+### Crafting
+- `list-recipes` - List available crafting recipes
+- `get-recipe` - Get detailed recipe information
+- `can-craft` - Check if an item can be crafted
+- `craft-item` - Craft a specific item
+
+### Multi-Bot Management (New in v2.1.0) 🎉
+- `spawn-bot` - Create and connect a new bot
+- `list-bots` - List all active bots with their status
+- `select-bot` - Set the active bot by name or number
+- `remove-bot` - Remove a bot from the pool
+- `get-active-bot` - Get information about the current active bot
+- `get-bot-count` - Get total number of active bots
+
+## Multi-Bot Support (v2.1.0+)
+
+The server now supports managing multiple bot connections to the same Minecraft world! You can:
+- **Configure a single Minecraft server** target (host + port)
+- **Spawn multiple bots dynamically** into the same world
+- **Switch between bots** using the active bot concept
+- **Target specific bots** with the optional `bot` parameter on many tools
+
+### Quick Start with Multi-Bot
+
+**Option 1**: No initial bot (spawn as needed)
+```json
+{
+  "mcpServers": {
+    "minecraft": {
+      "command": "npx",
+      "args": ["-y", "github:yuniko-software/minecraft-mcp-server",
+               "--host", "localhost", "--port", "25565"]
+    }
+  }
+}
+```
+
+Then use the `spawn-bot` tool in Claude:
+```typescript
+spawn-bot({ username: "MinerBot" })
+spawn-bot({ username: "BuilderBot" })
+```
+
+**Option 2**: Start with one bot, add more later
+```json
+{
+  "mcpServers": {
+    "minecraft": {
+      "command": "npx",
+      "args": ["-y", "github:yuniko-software/minecraft-mcp-server",
+               "--host", "localhost", "--port", "25565", "--username", "ClaudeBot"]
+    }
+  }
+}
+```
+
+Then spawn additional bots using `spawn-bot({ username: "SecondBot" })` as needed!
+
+### Simple Usage Example
+
+```bash
+# Server starts connected to localhost:25565
+# Spawn bots as you need them:
+spawn-bot({ username: "Miner" })
+spawn-bot({ username: "Builder" })
+spawn-bot({ username: "Scout" })
+
+# List all bots
+list-bots()
+
+# Control a specific bot
+get-position({ bot: "Miner" })
+move-to-position({ bot: "Builder", x: 100, y: 64, z: 200 })
+```
+
+For detailed multi-bot usage, workflow examples, and best practices, see [Multi-Bot Guide](docs/multi-bot-guide.md).
+
 ## Contributing
 
 Feel free to submit pull requests or open issues for improvements. All refactoring commits, functional and test contributions, issues and discussion are greatly appreciated!

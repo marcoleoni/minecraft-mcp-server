@@ -5,7 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { setupStdioFiltering } from './stdio-filter.js';
 import { log } from './logger.js';
 import { parseConfig } from './config.js';
-import { BotConnection } from './bot-connection.js';
+import { BotManager } from './bot-manager.js';
 import { ToolFactory } from './tool-factory.js';
 import { MessageStore } from './message-store.js';
 import { registerPositionTools } from './tools/position-tools.js';
@@ -16,6 +16,10 @@ import { registerChatTools } from './tools/chat-tools.js';
 import { registerFlightTools } from './tools/flight-tools.js';
 import { registerGameStateTools } from './tools/gamestate-tools.js';
 import { registerCraftingTools } from './tools/crafting-tools.js';
+import { registerBotManagementTools } from './tools/bot-management-tools.js';
+import { registerCompositeTools } from './tools/composite-tools.js';
+import { registerSequenceTools } from './tools/sequence-tools.js';
+import { registerContextTools } from './tools/context-tools.js';
 
 setupStdioFiltering();
 
@@ -31,24 +35,40 @@ async function main() {
   const config = parseConfig();
   const messageStore = new MessageStore();
 
-  const connection = new BotConnection(
-    config,
+  log('info', `Minecraft MCP Server v2.1.0 starting...`);
+  log('info', `Target server: ${config.server.host}:${config.server.port}`);
+
+  // Create BotManager with server configuration
+  const botManager = new BotManager(
     {
       onLog: log,
-      onChatMessage: (username, message) => messageStore.addMessage(username, message)
-    }
+      onChatMessage: (botName, username, message) => messageStore.addMessage(username, message, botName)
+    },
+    config.server
   );
 
-  connection.connect();
+  // Optionally spawn initial bot if username provided
+  if (config.initialBot) {
+    log('info', `Spawning initial bot with username: ${config.initialBot}`);
+    const result = await botManager.spawnBot(config.initialBot);
+
+    if (!result.success) {
+      log('error', `Failed to spawn initial bot: ${result.message}`);
+      log('info', 'Server will continue without initial bot. Use spawn-bot tool to add bots.');
+    }
+  } else {
+    log('info', 'No initial bot specified. Use spawn-bot tool to add bots to the server.');
+  }
 
   const server = new McpServer({
     name: "minecraft-mcp-server",
-    version: "2.0.1"
+    version: "2.1.0"
   });
 
-  const factory = new ToolFactory(server, connection);
-  const getBot = () => connection.getBot()!;
+  const factory = new ToolFactory(server, botManager);
+  const getBot = () => botManager.getActiveBot()!;
 
+  // Register all existing tools
   registerPositionTools(factory, getBot);
   registerInventoryTools(factory, getBot);
   registerBlockTools(factory, getBot);
@@ -58,8 +78,26 @@ async function main() {
   registerGameStateTools(factory, getBot);
   registerCraftingTools(factory, getBot);
 
+  // Register multi-bot management tools
+  registerBotManagementTools(factory);
+
+  // Register performance-optimized tools
+  registerCompositeTools(factory, getBot);
+  registerSequenceTools(factory, getBot);
+  registerContextTools(factory, getBot);
+
+  const botCount = botManager.getBotCount();
+  const activeBotName = botManager.getActiveBotName();
+
+  log('info', `MCP Server initialized with ${botCount} bot(s)`);
+  if (activeBotName) {
+    log('info', `Active bot: ${activeBotName}`);
+  } else {
+    log('info', 'No active bot. Use spawn-bot to create bots.');
+  }
+
   process.stdin.on('end', () => {
-    connection.cleanup();
+    botManager.cleanup();
     log('info', 'MCP Client has disconnected. Shutting down...');
     process.exit(0);
   });
