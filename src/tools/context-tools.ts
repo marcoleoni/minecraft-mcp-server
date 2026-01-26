@@ -1,6 +1,8 @@
 import { z } from "zod";
 import mineflayer from 'mineflayer';
 import { ToolFactory } from '../tool-factory.js';
+import minecraftData from 'minecraft-data';
+import { Vec3 } from 'vec3';
 
 /**
  * Context tools - Return rich information in a single call
@@ -90,7 +92,7 @@ export function registerContextTools(factory: ToolFactory, getBot: () => minefla
           'crafting_table', 'furnace', 'chest', 'bed'
         ];
 
-        const mcData = require('minecraft-data')(bot.version);
+        const mcData = minecraftData(bot.version);
         const nearbyBlocks: any[] = [];
 
         for (const blockName of interestingBlockTypes) {
@@ -270,7 +272,7 @@ export function registerContextTools(factory: ToolFactory, getBot: () => minefla
       for (let x = centerX - radius; x <= centerX + radius; x++) {
         for (let y = centerY - radius; y <= centerY + radius; y++) {
           for (let z = centerZ - radius; z <= centerZ + radius; z++) {
-            const block = bot.blockAt(new (require('vec3').Vec3)(x, y, z));
+            const block = bot.blockAt(new Vec3(x, y, z));
             if (block) {
               totalBlocks++;
               blockCounts[block.name] = (blockCounts[block.name] || 0) + 1;

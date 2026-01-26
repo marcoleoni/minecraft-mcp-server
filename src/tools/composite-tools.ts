@@ -4,6 +4,7 @@ import { ToolFactory } from '../tool-factory.js';
 import pathfinderPkg from 'mineflayer-pathfinder';
 const { goals } = pathfinderPkg;
 import { Vec3 } from 'vec3';
+import minecraftData from 'minecraft-data';
 
 /**
  * Composite tools - High-level operations that combine multiple actions
@@ -148,7 +149,7 @@ export function registerCompositeTools(factory: ToolFactory, getBot: () => minef
       const bot = getBotFromArgs(args);
       const { blockType, quantity, searchRadius = 32 } = args;
 
-      const mcData = require('minecraft-data')(bot.version);
+      const mcData = minecraftData(bot.version);
       const blockId = mcData.blocksByName[blockType]?.id;
 
       if (!blockId) {
@@ -215,7 +216,7 @@ export function registerCompositeTools(factory: ToolFactory, getBot: () => minef
       const bot = getBotFromArgs(args);
       const { blocks } = args;
 
-      const mcData = require('minecraft-data')(bot.version);
+      const mcData = minecraftData(bot.version);
       let placed = 0;
       const errors: string[] = [];
 

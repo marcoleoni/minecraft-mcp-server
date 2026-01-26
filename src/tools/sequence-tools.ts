@@ -4,6 +4,7 @@ import { ToolFactory } from '../tool-factory.js';
 import pathfinderPkg from 'mineflayer-pathfinder';
 const { goals } = pathfinderPkg;
 import { Vec3 } from 'vec3';
+import minecraftData from 'minecraft-data';
 
 /**
  * Sequence tools - Execute multiple commands in a single call
@@ -40,7 +41,7 @@ export function registerSequenceTools(factory: ToolFactory, getBot: () => minefl
       const { commands } = args as { commands: SequenceCommand[] };
 
       const results: string[] = [];
-      const mcData = require('minecraft-data')(bot.version);
+      const mcData = minecraftData(bot.version);
       let successCount = 0;
       let failCount = 0;
 
@@ -199,7 +200,7 @@ export function registerSequenceTools(factory: ToolFactory, getBot: () => minefl
       const bot = getBotFromArgs(args);
       const { structure, startX, startY, startZ, length, height = 3, blockType } = args;
 
-      const mcData = require('minecraft-data')(bot.version);
+      const mcData = minecraftData(bot.version);
       const item = mcData.itemsByName[blockType];
 
       if (!item) {
