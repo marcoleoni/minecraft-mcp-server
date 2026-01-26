@@ -1,41 +1,17 @@
 #!/usr/bin/env node
 
+/**
+ * Minecraft MCP Server v3
+ * Intelligent planner-based architecture with only 3 tools
+ */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { setupStdioFiltering } from './stdio-filter.js';
 import { log } from './logger.js';
 import { parseConfig } from './config.js';
-import { BotManager } from './bot-manager.js';
 import { ToolFactory } from './tool-factory.js';
-import { MessageStore } from './message-store.js';
-import { registerPositionTools } from './tools/position-tools.js';
-import { registerInventoryTools } from './tools/inventory-tools.js';
-import { registerBlockTools } from './tools/block-tools.js';
-import { registerEntityTools } from './tools/entity-tools.js';
-import { registerChatTools } from './tools/chat-tools.js';
-import { registerFlightTools } from './tools/flight-tools.js';
-import { registerGameStateTools } from './tools/gamestate-tools.js';
-import { registerCraftingTools } from './tools/crafting-tools.js';
-import { registerBotManagementTools } from './tools/bot-management-tools.js';
-import { registerCompositeTools } from './tools/composite-tools.js';
-import { registerSequenceTools } from './tools/sequence-tools.js';
-import { registerContextTools } from './tools/context-tools.js';
-
-// Goal-driven architecture imports
-import { EventQueue } from './events/event-queue.js';
-import { GoalManager } from './goals/goal-manager.js';
-import { BehaviorExecutor } from './behaviors/behavior-executor.js';
-import { NavigateBehavior } from './behaviors/navigate.behavior.js';
-import { MineBehavior } from './behaviors/mine.behavior.js';
-import { EatBehavior } from './behaviors/eat.behavior.js';
-import { PlaceBehavior } from './behaviors/place.behavior.js';
-import { BuildStructureBehavior } from './behaviors/build-structure.behavior.js';
-import { registerDelegateTaskTool } from './tools/delegate-task.tool.js';
-import { registerGetStatusTool } from './tools/get-status.tool.js';
-import { registerGetEventsTool } from './tools/get-events.tool.js';
-import { registerCancelTaskTool } from './tools/cancel-task.tool.js';
-import { registerListCapabilitiesTool } from './tools/list-capabilities.tool.js';
-import { registerExecuteScriptTool } from './tools/execute-script.tool.js';
+import { registerV3Tools, createBotManager } from './v3/index.js';
 
 setupStdioFiltering();
 
@@ -49,110 +25,50 @@ process.on('uncaughtException', (error) => {
 
 async function main() {
   const config = parseConfig();
-  const messageStore = new MessageStore();
 
-  log('info', `Minecraft MCP Server v2.2.1 starting...`);
+  log('info', `Minecraft MCP Server v3.0.0 (Intelligent Planner) starting...`);
   log('info', `Target server: ${config.server.host}:${config.server.port}`);
+  log('info', '');
+  log('info', 'Available tools:');
+  log('info', '  - bot     : Manage bots (spawn, list, remove)');
+  log('info', '  - observe : Get comprehensive state information');
+  log('info', '  - do      : Execute tasks with natural language');
+  log('info', '');
 
-  // Create BotManager with server configuration
-  const botManager = new BotManager(
-    {
-      onLog: log,
-      onChatMessage: (botName, username, message) => messageStore.addMessage(username, message, botName)
-    },
-    config.server
-  );
+  // Create bot manager with v3 architecture
+  const botManager = createBotManager({
+    host: config.server.host,
+    port: config.server.port,
+    version: (config.server as any).version,
+  });
 
-  // Optionally spawn initial bot if username provided
-  if (config.initialBot) {
-    log('info', `Spawning initial bot with username: ${config.initialBot}`);
-    const result = await botManager.spawnBot(config.initialBot);
-
-    if (!result.success) {
-      log('error', `Failed to spawn initial bot: ${result.message}`);
-      log('info', 'Server will continue without initial bot. Use spawn-bot tool to add bots.');
-    }
-  } else {
-    log('info', 'No initial bot specified. Use spawn-bot tool to add bots to the server.');
-  }
-
+  // Create MCP server
   const server = new McpServer({
     name: "minecraft-mcp-server",
-    version: "2.2.1"
+    version: "3.0.0"
   });
 
-  const factory = new ToolFactory(server, botManager);
-  const getBot = () => botManager.getActiveBot()!;
+  // Create tool factory
+  const factory = new ToolFactory(server);
 
-  // Initialize goal-driven architecture
-  log('info', 'Initializing goal-driven architecture...');
-  const eventQueue = new EventQueue(1000); // Keep last 1000 events
-  const behaviorExecutor = new BehaviorExecutor();
-  const goalManager = new GoalManager(eventQueue, behaviorExecutor);
+  // Register only the 3 v3 tools
+  registerV3Tools(factory, botManager);
 
-  // Register behaviors
-  behaviorExecutor.registerBehavior(new NavigateBehavior());
-  behaviorExecutor.registerBehavior(new MineBehavior());
-  behaviorExecutor.registerBehavior(new EatBehavior());
-  behaviorExecutor.registerBehavior(new PlaceBehavior());
-  behaviorExecutor.registerBehavior(new BuildStructureBehavior());
+  log('info', 'Tools registered. Starting MCP server...');
 
-  // Note: Bots will be registered with behavior executor on-demand when goals are delegated
-
-  // Start goal manager tick loop
-  goalManager.start();
-  log('info', 'Goal-driven architecture initialized');
-
-  // Register all existing tools
-  registerPositionTools(factory, getBot);
-  registerInventoryTools(factory, getBot);
-  registerBlockTools(factory, getBot);
-  registerEntityTools(factory, getBot);
-  registerChatTools(factory, getBot, messageStore);
-  registerFlightTools(factory, getBot);
-  registerGameStateTools(factory, getBot);
-  registerCraftingTools(factory, getBot);
-
-  // Register multi-bot management tools
-  registerBotManagementTools(factory);
-
-  // Register performance-optimized tools
-  registerCompositeTools(factory, getBot);
-  registerSequenceTools(factory, getBot);
-  registerContextTools(factory, getBot);
-
-  // Register goal-driven architecture tools
-  registerDelegateTaskTool(factory, getBot, goalManager, behaviorExecutor);
-  registerGetStatusTool(factory, getBot, goalManager);
-  registerGetEventsTool(factory, getBot, eventQueue);
-  registerCancelTaskTool(factory, getBot, goalManager);
-  registerListCapabilitiesTool(factory, getBot);
-
-  // Register script execution tool (maximum flexibility)
-  registerExecuteScriptTool(factory, getBot);
-
-  const botCount = botManager.getBotCount();
-  const activeBotName = botManager.getActiveBotName();
-
-  log('info', `MCP Server initialized with ${botCount} bot(s)`);
-  if (activeBotName) {
-    log('info', `Active bot: ${activeBotName}`);
-  } else {
-    log('info', 'No active bot. Use spawn-bot to create bots.');
-  }
-
-  process.stdin.on('end', () => {
-    goalManager.stop();
-    botManager.cleanup();
-    log('info', 'MCP Client has disconnected. Shutting down...');
-    process.exit(0);
-  });
-
+  // Start server
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  log('info', 'MCP Server connected and ready!');
+  log('info', '');
+  log('info', 'Quick start:');
+  log('info', '  1. bot("spawn", "Steve")     - Create a bot');
+  log('info', '  2. observe()                  - See the world');
+  log('info', '  3. do("build a small house")  - Execute tasks');
 }
 
 main().catch((error) => {
-  log('error', `Fatal error in main(): ${error}`);
+  log('error', `Fatal error: ${error}`);
   process.exit(1);
 });
