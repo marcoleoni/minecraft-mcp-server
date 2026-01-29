@@ -27,10 +27,34 @@ interface TaskPattern {
   extractParams: (match: RegExpMatchArray) => Record<string, any>;
 }
 
+// List of known materials to help with parsing
+const KNOWN_MATERIALS = [
+  'cobblestone', 'stone', 'cobble', 'brick', 'bricks', 'stone_bricks',
+  'oak', 'birch', 'spruce', 'jungle', 'acacia', 'dark_oak', 'wood', 'wooden', 'planks',
+  'oak_planks', 'birch_planks', 'spruce_planks', 'oak_log', 'birch_log',
+  'dirt', 'sand', 'sandstone', 'glass', 'wool', 'clay', 'terracotta',
+  'iron', 'gold', 'diamond', 'emerald', 'obsidian', 'netherrack', 'quartz',
+  'granite', 'diorite', 'andesite', 'deepslate', 'copper', 'prismarine',
+];
+
+// Words to ignore as material names
+const IGNORED_WORDS = ['a', 'an', 'the', 'small', 'big', 'large', 'tiny', 'huge', 'simple', 'basic', 'nice'];
+
 const TASK_PATTERNS: TaskPattern[] = [
-  // Building
+  // Building - with "made of/from/with" syntax (highest priority)
   {
-    pattern: /build\s+(?:a\s+)?(\d+)\s*x\s*(\d+)\s+(\w+)\s+(house|hut|shelter|cabin)/i,
+    pattern: /build\s+(?:a\s+)?(?:\w+\s+)?(?:\d+\s*x\s*\d+\s+)?(house|hut|shelter|cabin)\s+(?:made\s+)?(?:of|from|with|using)\s+(\w+)/i,
+    type: 'build',
+    extractParams: (m) => ({
+      structure: 'house',
+      width: 5,
+      depth: 5,
+      material: m[2].toLowerCase(),
+    }),
+  },
+  // Building - NxN material house
+  {
+    pattern: /build\s+(?:a\s+)?(?:small\s+)?(\d+)\s*x\s*(\d+)\s+(\w+)\s+(house|hut|shelter|cabin)/i,
     type: 'build',
     extractParams: (m) => ({
       structure: 'house',
@@ -39,16 +63,36 @@ const TASK_PATTERNS: TaskPattern[] = [
       material: m[3].toLowerCase(),
     }),
   },
+  // Building - material house (e.g., "cobblestone house", "oak_planks house")
   {
-    pattern: /build\s+(?:a\s+)?(?:small\s+)?(\w+)\s+(house|hut|shelter|cabin)/i,
+    pattern: /build\s+(?:a\s+)?(?:small\s+|big\s+|large\s+)?(\w+(?:_\w+)?)\s+(house|hut|shelter|cabin)/i,
+    type: 'build',
+    extractParams: (m) => {
+      const potentialMaterial = m[1].toLowerCase();
+      // Check if it's actually a material or just a size word
+      const isMaterial = KNOWN_MATERIALS.some(mat => potentialMaterial.includes(mat)) ||
+                         potentialMaterial.includes('_') ||
+                         !IGNORED_WORDS.includes(potentialMaterial);
+      return {
+        structure: 'house',
+        width: 5,
+        depth: 5,
+        material: isMaterial && !IGNORED_WORDS.includes(potentialMaterial) ? potentialMaterial : 'cobblestone',
+      };
+    },
+  },
+  // Building - simple "build a house" (default material)
+  {
+    pattern: /build\s+(?:a\s+)?(?:small\s+|big\s+|large\s+)?(house|hut|shelter|cabin)$/i,
     type: 'build',
     extractParams: (m) => ({
       structure: 'house',
       width: 5,
       depth: 5,
-      material: m[1].toLowerCase(),
+      material: 'cobblestone',
     }),
   },
+  // Building - walls/towers with dimensions
   {
     pattern: /build\s+(?:a\s+)?(\d+)\s*(?:block\s+)?(?:tall\s+)?(\w+)\s+(wall|tower)/i,
     type: 'build',
@@ -58,8 +102,9 @@ const TASK_PATTERNS: TaskPattern[] = [
       material: m[2].toLowerCase(),
     }),
   },
+  // Building - material wall/floor/etc
   {
-    pattern: /build\s+(?:a\s+)?(\w+)\s+(wall|floor|platform|bridge|tower)/i,
+    pattern: /build\s+(?:a\s+)?(\w+(?:_\w+)?)\s+(wall|floor|platform|bridge|tower)/i,
     type: 'build',
     extractParams: (m) => ({
       structure: m[2].toLowerCase(),
@@ -68,8 +113,9 @@ const TASK_PATTERNS: TaskPattern[] = [
       width: 3,
     }),
   },
+  // Placing blocks
   {
-    pattern: /place\s+(\d+)\s+(\w+)/i,
+    pattern: /place\s+(\d+)\s+(\w+(?:_\w+)?)/i,
     type: 'build',
     extractParams: (m) => ({
       structure: 'custom',

@@ -88,10 +88,7 @@ async function executeAction(
         return await executeEat(bot, action.params, mcData, report);
 
       case 'use_creative':
-        return {
-          success: true,
-          message: `Using creative mode for ${action.params.item}`,
-        };
+        return await executeCreativeGive(bot, action.params, mcData, report);
 
       default:
         return {
@@ -671,6 +668,85 @@ async function executeEat(
     return {
       success: false,
       message: `Failed to eat: ${error}`,
+    };
+  }
+}
+
+/**
+ * Execute creative mode give
+ * Uses mineflayer's creative fly to get items from creative inventory
+ */
+async function executeCreativeGive(
+  bot: mineflayer.Bot,
+  params: Record<string, any>,
+  mcData: any,
+  report: (progress: number, message: string) => void
+): Promise<ExecutionResult> {
+  const { item, quantity } = params;
+
+  // Verify creative mode
+  if (bot.game.gameMode !== 'creative') {
+    return {
+      success: false,
+      message: `Not in creative mode. Current mode: ${bot.game.gameMode}`,
+    };
+  }
+
+  // Normalize item name
+  const itemData = mcData.itemsByName[item];
+  if (!itemData) {
+    return { success: false, message: `Unknown item: ${item}` };
+  }
+
+  report(0, `Giving ${quantity} ${item} via creative mode`);
+
+  // Check if we already have enough
+  const existingItem = bot.inventory.items().find(i => i.name === item);
+  if (existingItem && existingItem.count >= quantity) {
+    return {
+      success: true,
+      message: `Already have ${existingItem.count} ${item} in inventory`,
+      details: { existing: existingItem.count },
+    };
+  }
+
+  try {
+    // Use mineflayer's creative.setInventorySlot with a simple item object
+    const emptySlot = bot.inventory.firstEmptyInventorySlot(false);
+    if (emptySlot !== null) {
+      // Create a simple item-like object that setInventorySlot can use
+      const itemToAdd = {
+        type: itemData.id,
+        count: quantity,
+        metadata: 0,
+        nbt: null,
+      };
+
+      // Use setInventorySlot - mineflayer converts this to proper format
+      await bot.creative.setInventorySlot(emptySlot, itemToAdd as any);
+      await sleep(300); // Wait for server
+
+      // Verify it worked
+      const newItem = bot.inventory.items().find(i => i.name === item);
+      if (newItem) {
+        report(100, `Added ${newItem.count} ${item} to inventory`);
+        return {
+          success: true,
+          message: `Added ${newItem.count} ${item} to inventory`,
+          details: { slot: emptySlot, count: newItem.count },
+        };
+      }
+    }
+
+    // If creative API didn't work, inventory might be full
+    return {
+      success: false,
+      message: `Could not add ${item} to inventory. Slot: ${emptySlot}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Creative give failed: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
